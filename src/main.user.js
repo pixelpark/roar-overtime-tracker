@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         roar Overtime Tracker
 // @namespace    https://pixelpark.com/
-// @version      0.1.2
+// @version      0.1.3
 // @description  try to take over the world!
 // @author       You
 // @match        https://timesheet.roar.pub/*
@@ -193,9 +193,12 @@ function initDataDisplay() {
     <span>target:</span><span class="js--overall-target" title="edit" style="cursor: pointer;">40</span>
   </div>
 </div>
-<div>
-  <i aria-label="Export" role="button" title="Export" style="cursor: pointer;font-size: 1.25rem;" class="v-icon notranslate mdi mdi-download theme--light primary--text js--export-button"></i>
-  <i aria-label="Import" role="button" title="Import" style="cursor: pointer;font-size: 1.25rem;" class="v-icon notranslate mdi mdi-upload theme--light primary--text js--import-button"></i>
+<div style="display: flex;flex-direction: column;justify-content: space-between;">
+  <div>
+    <i aria-label="Export" role="button" title="Export" style="cursor: pointer;font-size: 1.25rem;" class="v-icon notranslate mdi mdi-download theme--light primary--text js--export-button"></i>
+    <i aria-label="Import" role="button" title="Import" style="cursor: pointer;font-size: 1.25rem;" class="v-icon notranslate mdi mdi-upload theme--light primary--text js--import-button"></i>
+  </div>
+  <span style="font-size: 0.75rem;text-align: right;">v${GM_info.script.version}</span>
 </div>
     `;
     document.querySelector('body').appendChild(element);
