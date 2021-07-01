@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         roar Overtime Tracker
 // @namespace    https://pixelpark.com/
-// @version      0.1.1
+// @version      0.1.2
 // @description  try to take over the world!
 // @author       You
 // @match        https://timesheet.roar.pub/*
@@ -194,8 +194,8 @@ function initDataDisplay() {
   </div>
 </div>
 <div>
-  <i aria-label="Import" role="button" title="Import" style="cursor: pointer;font-size: 1.25rem;" class="v-icon notranslate mdi mdi-download theme--light primary--text js--export-button"></i>
-  <i aria-label="Export" role="button" title="Export" style="cursor: pointer;font-size: 1.25rem;" class="v-icon notranslate mdi mdi-upload theme--light primary--text js--import-button"></i>
+  <i aria-label="Export" role="button" title="Export" style="cursor: pointer;font-size: 1.25rem;" class="v-icon notranslate mdi mdi-download theme--light primary--text js--export-button"></i>
+  <i aria-label="Import" role="button" title="Import" style="cursor: pointer;font-size: 1.25rem;" class="v-icon notranslate mdi mdi-upload theme--light primary--text js--import-button"></i>
 </div>
     `;
     document.querySelector('body').appendChild(element);
@@ -234,9 +234,9 @@ function handleImportClick() {
                     }
                     storage = result.data;
                     updateData();
-                    console.log('Erfolgreich importiert.');
+                    console.info('Erfolgreich importiert.');
                 } catch (e) {
-                    console.log(e);
+                    console.error(e);
                 }
             };
             fr.readAsText(file);
