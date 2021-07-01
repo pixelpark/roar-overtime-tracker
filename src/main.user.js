@@ -59,7 +59,7 @@ function handleTargetHoursClick() {
     if (currentWeek) {
         const newTarget = prompt('New current week target:', currentWeek.target);
         if (newTarget) {
-            const newTargetFloat = Math.round(parseFloat(newTarget) * 10) / 10;
+            const newTargetFloat = round(parseFloat(newTarget));
             if (!isNaN(newTargetFloat)) {
                 setTargetHours(getCurrentWeekKey(), newTargetFloat);
             }
@@ -70,7 +70,7 @@ function handleTargetHoursClick() {
 function handleOverallTargetHoursClick() {
     const newTarget = prompt('New overall target:', storage.target);
     if (newTarget) {
-        const newTargetFloat = Math.round(parseFloat(newTarget) * 10) / 10;
+        const newTargetFloat = round(parseFloat(newTarget));
         if (!isNaN(newTargetFloat)) {
             setOverallTargetHours(newTargetFloat);
         }
@@ -169,7 +169,7 @@ function updateData() {
         overallOvertime += overtime;
     }
     document.querySelector('.js--overall-worked').innerText = overallWorked;
-    document.querySelector('.js--overall-overtime').innerText = Math.round(overallOvertime * 10)/ 10;
+    document.querySelector('.js--overall-overtime').innerText = round(overallOvertime);
     document.querySelector('.js--overall-target').innerText = storage.target;
 }
 
@@ -198,4 +198,8 @@ function initDataDisplay() {
     document.querySelector('.js--week-target').addEventListener('click', handleTargetHoursClick);
     document.querySelector('.js--overall-target').addEventListener('click', handleOverallTargetHoursClick);
     updateData();
+}
+
+function round(number) {
+    return Math.round(number * 10) / 10;
 }
