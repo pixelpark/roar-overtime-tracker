@@ -193,11 +193,56 @@ function initDataDisplay() {
     <span>target:</span><span class="js--overall-target" title="edit" style="cursor: pointer;">40</span>
   </div>
 </div>
+<div>
+  <i aria-label="Import" role="button" title="Import" style="cursor: pointer;font-size: 1.25rem;" class="v-icon notranslate mdi mdi-download theme--light primary--text js--export-button"></i>
+  <i aria-label="Export" role="button" title="Export" style="cursor: pointer;font-size: 1.25rem;" class="v-icon notranslate mdi mdi-upload theme--light primary--text js--import-button"></i>
+</div>
     `;
     document.querySelector('body').appendChild(element);
     document.querySelector('.js--week-target').addEventListener('click', handleTargetHoursClick);
     document.querySelector('.js--overall-target').addEventListener('click', handleOverallTargetHoursClick);
+    document.querySelector('.js--export-button').addEventListener('click', handleExportClick);
+    document.querySelector('.js--import-button').addEventListener('click', handleImportClick);
     updateData();
+}
+
+function handleExportClick() {
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify({ data: storage }));
+    const downloadElement = document.createElement('a');
+    downloadElement.setAttribute('href', dataStr);
+    const exportName = 'Export_' + new Date().toISOString().split('T')[0] + '.roarOvertimeTracker';
+    downloadElement.setAttribute('download', exportName);
+    downloadElement.click();
+    downloadElement.remove();
+}
+
+function handleImportClick() {
+    const inputElement = document.createElement('input');
+    inputElement.setAttribute('type', 'file');
+    inputElement.setAttribute('accept', '.roarOvertimeTracker');
+    inputElement.setAttribute('multiple', 'false');
+    inputElement.click();
+    inputElement.addEventListener('change', () => {
+        const file = inputElement.files[0];
+        if (file !== undefined) {
+            const fr = new FileReader();
+            fr.onload = () => {
+                try {
+                    const result = JSON.parse(fr.result);
+                    if (!result.data) {
+                        console.error('Restore: No data attribute available.');
+                    }
+                    storage = result.data;
+                    updateData();
+                    console.log('Erfolgreich importiert.');
+                } catch (e) {
+                    console.log(e);
+                }
+            };
+            fr.readAsText(file);
+        }
+        inputElement.remove();
+    });
 }
 
 function round(number) {
