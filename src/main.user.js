@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         roar Overtime Tracker
 // @namespace    https://pixelpark.com/
-// @version      0.1.3
+// @version      0.1.4
 // @description  try to take over the world!
 // @author       You
 // @match        https://timesheet.roar.pub/*
@@ -37,16 +37,18 @@ if (fromLocalStorage) {
     storage = JSON.parse(fromLocalStorage);
 }
 
-function setWorkedHours(weekKey, hours) {
+function setWorkedHours(weekKey, hours, nonWorkingTime) {
     if (storage.entries[weekKey]) {
-        storage.entries[weekKey].worked = hours
+        storage.entries[weekKey].worked = hours;
+        storage.entries[weekKey].modifiers.automatic = nonWorkingTime;
+
     } else {
         storage.entries[weekKey] = {
             id: weekKey,
             worked: hours,
             modifiers: {
                 manual: 0,
-                automatic: 0
+                automatic: nonWorkingTime
             },
             target: storage.target
         }
@@ -109,9 +111,22 @@ function handleChange() {
         console.log(weekKey, 'empty week');
     } else {
         const total = parseFloat(currentWeekDayTotals[currentWeekDayTotals.length - 1].innerText);
-        setWorkedHours(weekKey, total);
+        const nonWorkingTime = getNonWorkingTime();
+        setWorkedHours(weekKey, total, nonWorkingTime);
         console.log(weekKey, total);
     }
+}
+
+function getNonWorkingTime() {
+    const jobEntries = document.querySelectorAll('.job-group');
+    let nonWorkingTime = 0;
+    for (const jobEntry of jobEntries) {
+        if (jobEntry.textContent.includes('TIME IN LIEU')) {
+            const jobEntryTotal = parseFloat(jobEntry.querySelector('.job-group--week-total').textContent);
+            nonWorkingTime += jobEntryTotal;
+        }
+    }
+    return nonWorkingTime;
 }
 
 function getCurrentWeekKey() {
