@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         roar Overtime Tracker
 // @namespace    https://pixelpark.com/
-// @version      0.1.5
+// @version      0.1.6
 // @description  try to take over the world!
 // @author       You
 // @match        https://timesheet.roar.pub/*
@@ -15,10 +15,10 @@ const STORAGE_KEY = 'OVERTIME_TRACKER';
 // wait for application to load
 const waitingInverval = setInterval(() => {
     console.log('waiting for application to load...');
-    const weekInput = document.querySelector('.sticky-header').querySelector('input');
+    const weekInput = document.querySelector('.sticky-header').querySelectorAll('button');
     if (weekInput !== null) {
         setUpChangeListener();
-        const weekKey = weekInput.value;
+        const weekKey = weekInput.innerText;
         console.log(weekKey);
         clearInterval(waitingInverval);
         initDataDisplay();
@@ -131,7 +131,7 @@ function getNonWorkingTime() {
 }
 
 function getCurrentWeekKey() {
-    return document.querySelector('.sticky-header').querySelector('input').value;
+    return document.querySelector('.sticky-header').querySelectorAll('button')[1].innerText;
 }
 
 function getCurrentWeek() {
