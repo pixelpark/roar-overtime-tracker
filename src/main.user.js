@@ -13,14 +13,14 @@
 const STORAGE_KEY = 'OVERTIME_TRACKER';
 
 // wait for application to load
-const waitingInverval = setInterval(() => {
+const waitingInterval = setInterval(() => {
     console.log('waiting for application to load...');
     const weekInput = document.querySelector('.sticky-header').querySelectorAll('button');
     if (weekInput !== null) {
         setUpChangeListener();
         const weekKey = weekInput.innerText;
         console.log(weekKey);
-        clearInterval(waitingInverval);
+        clearInterval(waitingInterval);
         initDataDisplay();
     }
 }, 1000);
@@ -142,7 +142,7 @@ function setUpChangeListener() {
     // https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver
     const targetNode = document.querySelector('.v-application--wrap');
     const config = { attributes: false, childList: true, subtree: true };
-    const callback = (mutationsList, observer) => {
+    const callback = (mutationsList) => {
         for (const mutation of mutationsList) {
             if (mutation.removedNodes.length > 0) {
                 const isLoaderRemovedMutation = mutation.removedNodes[0].classList && mutation.removedNodes[0].classList.contains('timesheet-loader');
@@ -211,8 +211,8 @@ function initDataDisplay() {
 </div>
 <div style="display: flex;flex-direction: column;justify-content: space-between;">
   <div>
-    <i aria-label="Export" role="button" title="Export" style="cursor: pointer;font-size: 1.25rem;" class="v-icon notranslate mdi mdi-download theme--light primary--text js--export-button"></i>
-    <i aria-label="Import" role="button" title="Import" style="cursor: pointer;font-size: 1.25rem;" class="v-icon notranslate mdi mdi-upload theme--light primary--text js--import-button"></i>
+    <i role="button" title="Export" style="cursor: pointer;font-size: 1.25rem;" class="v-icon notranslate mdi mdi-download theme--light primary--text js--export-button"></i>
+    <i role="button" title="Import" style="cursor: pointer;font-size: 1.25rem;" class="v-icon notranslate mdi mdi-upload theme--light primary--text js--import-button"></i>
   </div>
   <span style="font-size: 0.75rem;text-align: right;">v${GM_info.script.version}</span>
 </div>
@@ -253,7 +253,7 @@ function handleImportClick() {
                     }
                     storage = result.data;
                     updateData();
-                    console.info('Erfolgreich importiert.');
+                    console.info('Successfully imported.');
                 } catch (e) {
                     console.error(e);
                 }
