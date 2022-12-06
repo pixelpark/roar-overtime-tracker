@@ -11,6 +11,7 @@
 
 
 const STORAGE_KEY = 'OVERTIME_TRACKER';
+const STORAGE_VERSION = 1;
 const LOG_LEVEL = 0; // info=0, debug=1
 let currentWeekKey;
 let applicationLoading = true;
@@ -46,7 +47,7 @@ const waitingInterval = setInterval(() => {
 
 
 let storage = {
-    version: 0,
+    version: STORAGE_VERSION,
     entries: {},
     target: 40
 };
@@ -54,7 +55,7 @@ let storage = {
 const fromLocalStorage = localStorage.getItem(STORAGE_KEY);
 
 if (fromLocalStorage) {
-    storage = JSON.parse(fromLocalStorage);
+    storage = upgradeStorage(JSON.parse(fromLocalStorage));
 }
 
 function setWorkedHours(weekKey, entries) {
@@ -254,13 +255,13 @@ function handleImportClick() {
                 try {
                     const result = JSON.parse(fr.result);
                     if (!result.data) {
-                        console.error('Restore: No data attribute available.');
+                        throw 'Restore: No data attribute available.';
                     }
-                    storage = result.data;
+                    storage = upgradeStorage(result.data);
                     updateData(currentWeekKey);
-                    console.info('Successfully imported.');
+                    logInfo('Successfully imported.');
                 } catch (e) {
-                    console.error(e);
+                    logError(e);
                 }
             };
             fr.readAsText(file);
@@ -269,12 +270,54 @@ function handleImportClick() {
     });
 }
 
+function upgradeStorage(storage) {
+    if (storage.version === STORAGE_VERSION) {
+        return storage;
+    }
+    logInfo(`Old storage version detected: ${storage.version}`);
+    if (storage.version === 0) {
+        logInfo(`Upgrading storage to version 1...`);
+        const entries = {};
+        for (const entity of Object.values(storage.entries)) {
+            // '05/12/2022 - 11/12/2022' -> '2022-12-05:2022-12-11'
+            logDebug('old id', entity.id);
+            const id = entity.id
+                .split(' - ')
+                .map(date => date.split('/').reverse().join('-'))
+                .join(':');
+            logDebug('new id', id);
+            entries[id] = {
+                id,
+                worked: entity.worked,
+                modifiers: {
+                    manual: entity.modifiers.manual,
+                    automatic: entity.modifiers.automatic,
+                },
+                target: entity.target,
+                entries: [],
+            }
+        }
+        logInfo(`Upgrade to version 1 completed.`);
+        logDebug('entries', entries);
+        return upgradeStorage({
+            version: 1,
+            entries,
+            target: storage.target,
+        });
+    }
+    logInfo('Incompatible storage version...');
+}
+
 function round(number) {
     return Math.round(number * 10) / 10;
 }
 
 function logInfo(...messages) {
     console.info('roar-overtime-tracker:', ...messages);
+}
+
+function logError(...messages) {
+    console.error('roar-overtime-tracker:', ...messages);
 }
 
 function logDebug(...messages) {
