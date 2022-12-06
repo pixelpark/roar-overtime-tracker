@@ -11,16 +11,35 @@
 
 
 const STORAGE_KEY = 'OVERTIME_TRACKER';
+const LOG_LEVEL = 0; // info=0, debug=1
+let currentWeekKey;
+let applicationLoading = true;
+
+(function(open) {
+    XMLHttpRequest.prototype.open = function() {
+        this.addEventListener('loadend', function() {
+            const url = this.responseURL;
+            if (url.includes('/search?')) {
+                const response = JSON.parse(this.response);
+                const urlParams = new URLSearchParams(url);
+                const startDate = urlParams.get('DateFrom');
+                const endDate = urlParams.get('DateTo');
+                const weekKey = `${startDate}:${endDate}`;
+                if (response.success && typeof response.value === 'object' && typeof response.value.timesheets === 'object') {
+                    handeNewData(weekKey, mapEntries(response.value.timesheets));
+                }
+            }
+        }, false);
+        open.apply(this, arguments);
+    };
+})(XMLHttpRequest.prototype.open);
 
 // wait for application to load
 const waitingInterval = setInterval(() => {
-    console.log('waiting for application to load...');
-    const weekInput = document.querySelector('.sticky-header').querySelectorAll('button');
-    if (weekInput !== null) {
-        setUpChangeListener();
-        const weekKey = weekInput.innerText;
-        console.log(weekKey);
+    logInfo('waiting for application to load...');
+    if (document.querySelector('.sticky-header') !== null) {
         clearInterval(waitingInterval);
+        applicationLoading = false;
         initDataDisplay();
     }
 }, 1000);
@@ -38,11 +57,14 @@ if (fromLocalStorage) {
     storage = JSON.parse(fromLocalStorage);
 }
 
-function setWorkedHours(weekKey, hours, nonWorkingTime) {
-    if (storage.entries[weekKey]) {
-        storage.entries[weekKey].worked = hours;
-        storage.entries[weekKey].modifiers.automatic = nonWorkingTime;
-
+function setWorkedHours(weekKey, entries) {
+    const hours = calculateHours(entries);
+    const nonWorkingTime = calculateNonWorkingTime(entries);
+    const weekEntry = storage.entries[weekKey];
+    if (weekEntry) {
+        weekEntry.worked = hours;
+        weekEntry.modifiers.automatic = nonWorkingTime;
+        weekEntry.entries = entries;
     } else {
         storage.entries[weekKey] = {
             id: weekKey,
@@ -51,20 +73,45 @@ function setWorkedHours(weekKey, hours, nonWorkingTime) {
                 manual: 0,
                 automatic: nonWorkingTime
             },
-            target: storage.target
-        }
+            target: storage.target,
+            entries,
+        };
     }
-    updateData();
+    logDebug(storage.entries[weekKey]);
+}
+
+function calculateHours(entries) {
+    return round(entries.reduce(
+        (accumulator, entry) => accumulator + entry.value,
+        0
+    ));
+}
+
+function calculateNonWorkingTime(entries) {
+    return 0;
+}
+
+function mapEntries(entries) {
+    return entries
+        .filter(entry => entry.durationValue > 0)
+        .map(entry => {
+        return {
+            value: entry.durationValue,
+            jobCode: entry.job_ID,
+            workCode: entry.workCodeName,
+            date: entry.reportedDate.split('T')[0],
+            comment: entry.comment,
+        };
+    });
 }
 
 function handleTargetHoursClick() {
-    const currentWeek = getCurrentWeek();
-    if (currentWeek) {
-        const newTarget = prompt('New current week target:', currentWeek.target);
+    if (currentWeekKey) {
+        const newTarget = prompt('New current week target:', storage.entries[currentWeekKey].target);
         if (newTarget) {
             const newTargetFloat = round(parseFloat(newTarget));
             if (!isNaN(newTargetFloat)) {
-                setTargetHours(getCurrentWeekKey(), newTargetFloat);
+                setTargetHours(currentWeekKey, newTargetFloat);
             }
         }
     }
@@ -91,85 +138,43 @@ function setTargetHours(weekKey, hours) {
                 manual: 0,
                 automatic: 0
             },
-            target: storage.target
+            target: storage.target,
+            entries: [],
         }
     }
-    updateData();
+    updateData(weekKey);
 }
 
 function setOverallTargetHours(hours) {
     storage.target = hours;
-    updateData();
+    updateData(currentWeekKey);
 }
 
-function handleChange() {
-    const weekKey = getCurrentWeekKey();
-    const currentWeekDayTotals = document.querySelectorAll('.job-day-total-duration');
-    const isWeekEmpty = currentWeekDayTotals.length < 1;
+function handeNewData(weekKey, entries) {
+    const isWeekEmpty = entries.length < 1;
     if (isWeekEmpty) {
+        currentWeekKey = undefined;
         delete storage.entries[weekKey];
-        updateData();
-        console.log(weekKey, 'empty week');
+        logInfo(weekKey, 'empty week');
     } else {
-        const total = parseFloat(currentWeekDayTotals[currentWeekDayTotals.length - 1].innerText);
-        const nonWorkingTime = getNonWorkingTime();
-        setWorkedHours(weekKey, total, nonWorkingTime);
-        console.log(weekKey, total);
+        currentWeekKey = weekKey;
+        setWorkedHours(weekKey, entries);
     }
+    updateData(weekKey);
 }
 
-function getNonWorkingTime() {
-    const jobEntries = document.querySelectorAll('.job-group');
-    let nonWorkingTime = 0;
-    for (const jobEntry of jobEntries) {
-        if (jobEntry.textContent.includes('TIME IN LIEU')) {
-            const jobEntryTotal = parseFloat(jobEntry.querySelector('.job-group--week-total').textContent);
-            nonWorkingTime += jobEntryTotal;
-        }
-    }
-    return nonWorkingTime;
-}
-
-function getCurrentWeekKey() {
-    return document.querySelector('.sticky-header').querySelectorAll('button')[1].innerText;
-}
-
-function getCurrentWeek() {
-    return storage.entries[getCurrentWeekKey()];
-}
-
-function setUpChangeListener() {
-    // https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver
-    const targetNode = document.querySelector('.v-application--wrap');
-    const config = { attributes: false, childList: true, subtree: true };
-    const callback = (mutationsList) => {
-        for (const mutation of mutationsList) {
-            if (mutation.removedNodes.length > 0) {
-                const isLoaderRemovedMutation = mutation.removedNodes[0].classList && mutation.removedNodes[0].classList.contains('timesheet-loader');
-                if (isLoaderRemovedMutation) {
-                    /* TODO find better solution than setTimeout
-                     * there should be some way to detect the moment when the numbers (displayed to the user) are adjusted.
-                     * it seems like it is not possible to detect innerText changes, even if, it wouldn't be the only indicator something has changed
-                     */
-                    setTimeout(handleChange, 250);
-                }
-            }
-        }
-    };
-    const observer = new MutationObserver(callback);
-    observer.observe(targetNode, config);
-    console.log('mutation observer active.');
-}
-
-function updateData() {
+function updateData(weekKey) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(storage));
-    const currentWeek = getCurrentWeek();
+    const currentWeek = storage.entries[weekKey];
+    if (applicationLoading) {
+        return;
+    }
     if (currentWeek) {
         const currentWorked = currentWeek.worked - currentWeek.modifiers.automatic - currentWeek.modifiers.manual;
         const currentWorkedTitle = `${currentWeek.worked} - ${currentWeek.modifiers.automatic} + ${currentWeek.modifiers.manual}`;
-        document.querySelector('.js--week-worked').innerText = currentWorked;
+        document.querySelector('.js--week-worked').innerText = round(currentWorked);
         document.querySelector('.js--week-worked').title = currentWorkedTitle;
-        document.querySelector('.js--week-overtime').innerText = currentWorked - currentWeek.target;
+        document.querySelector('.js--week-overtime').innerText = round(currentWorked - currentWeek.target);
         document.querySelector('.js--week-target').innerText = currentWeek.target;
     } else {
         document.querySelector('.js--week-worked').innerText = 0;
@@ -184,7 +189,7 @@ function updateData() {
         overallWorked += worked;
         overallOvertime += overtime;
     }
-    document.querySelector('.js--overall-worked').innerText = overallWorked;
+    document.querySelector('.js--overall-worked').innerText = round(overallWorked);
     document.querySelector('.js--overall-overtime').innerText = round(overallOvertime);
     document.querySelector('.js--overall-target').innerText = storage.target;
 }
@@ -222,7 +227,7 @@ function initDataDisplay() {
     document.querySelector('.js--overall-target').addEventListener('click', handleOverallTargetHoursClick);
     document.querySelector('.js--export-button').addEventListener('click', handleExportClick);
     document.querySelector('.js--import-button').addEventListener('click', handleImportClick);
-    updateData();
+    updateData(currentWeekKey);
 }
 
 function handleExportClick() {
@@ -252,7 +257,7 @@ function handleImportClick() {
                         console.error('Restore: No data attribute available.');
                     }
                     storage = result.data;
-                    updateData();
+                    updateData(currentWeekKey);
                     console.info('Successfully imported.');
                 } catch (e) {
                     console.error(e);
@@ -266,4 +271,14 @@ function handleImportClick() {
 
 function round(number) {
     return Math.round(number * 10) / 10;
+}
+
+function logInfo(...messages) {
+    console.info('roar-overtime-tracker:', ...messages);
+}
+
+function logDebug(...messages) {
+    if (LOG_LEVEL > 0) {
+        console.debug('roar-overtime-tracker:', ...messages);
+    }
 }
