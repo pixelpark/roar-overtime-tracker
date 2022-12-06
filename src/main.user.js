@@ -12,7 +12,7 @@
 
 const STORAGE_KEY = 'OVERTIME_TRACKER';
 const STORAGE_VERSION = 1;
-const LOG_LEVEL = 0; // info=0, debug=1
+const LOG_LEVEL = 0; // info+error=0, debug=1
 let currentWeekKey;
 let applicationLoading = true;
 
@@ -35,7 +35,7 @@ let applicationLoading = true;
     };
 })(XMLHttpRequest.prototype.open);
 
-// wait for application to load
+// wait for the application to load
 const waitingInterval = setInterval(() => {
     logInfo('waiting for application to load...');
     if (document.querySelector('.sticky-header') !== null) {
@@ -49,7 +49,9 @@ const waitingInterval = setInterval(() => {
 let storage = {
     version: STORAGE_VERSION,
     entries: {},
-    target: 40
+    target: 40,
+    ignored: [],
+    unrelated: [],
 };
 
 const fromLocalStorage = localStorage.getItem(STORAGE_KEY);
@@ -193,34 +195,71 @@ function updateData(weekKey) {
     document.querySelector('.js--overall-worked').innerText = round(overallWorked);
     document.querySelector('.js--overall-overtime').innerText = round(overallOvertime);
     document.querySelector('.js--overall-target').innerText = storage.target;
+    const ignoredListElement = document.querySelector('.js--ignored-list');
+    ignoredListElement.innerHTML = '';
+    for (const item of storage.ignored) {
+        const listItemElement = document.createElement('li');
+        listItemElement.innerHTML = `
+<i role="button" title="Delete ignored code ${item}" style="cursor: pointer;font-size: 1.25rem;" class="v-icon notranslate mdi mdi-delete theme--light primary--text js--delete-ignored-item" data-id="${item}"></i>
+<span>${item}</span>
+`;
+        ignoredListElement.append(listItemElement)
+    }
+    document.querySelectorAll('.js--delete-ignored-item').forEach(element => {
+        element.addEventListener('click', event => {
+            const id = event.currentTarget.dataset.id;
+            storage.ignored = storage.ignored.filter(item => item !== id);
+            updateData(currentWeekKey);
+        });
+    })
 }
 
 function initDataDisplay() {
     const element = document.createElement('div');
-    element.style = 'position: absolute; top: 1rem; right: 0; font-family: sans-serif; z-index: 100; display: flex;';
+    element.style = 'position: absolute; top: 1rem; right: 0; font-family: sans-serif; z-index: 100;';
     element.innerHTML = `
-<div>
-  <b>This week:</b>
-  <div style="display: grid; grid-template-columns: 1fr 1fr; column-gap: 0.5rem; margin-right: 1rem;">
-    <span>worked:</span><span class="js--week-worked">0</span>
-    <span>overtime:</span><span class="js--week-overtime">0</span>
-    <span>target:</span><span class="js--week-target" title="edit" style="cursor: pointer;">40</span>
-  </div>
-</div>
-<div>
-  <b>Overall:</b>
-  <div style="display: grid; grid-template-columns: 1fr 1fr; column-gap: 0.5rem;">
-    <span>worked:</span><span class="js--overall-worked">0</span>
-    <span>overtime:</span><span class="js--overall-overtime">0</span>
-    <span>target:</span><span class="js--overall-target" title="edit" style="cursor: pointer;">40</span>
-  </div>
-</div>
-<div style="display: flex;flex-direction: column;justify-content: space-between;">
-  <div>
-    <i role="button" title="Export" style="cursor: pointer;font-size: 1.25rem;" class="v-icon notranslate mdi mdi-download theme--light primary--text js--export-button"></i>
-    <i role="button" title="Import" style="cursor: pointer;font-size: 1.25rem;" class="v-icon notranslate mdi mdi-upload theme--light primary--text js--import-button"></i>
-  </div>
-  <span style="font-size: 0.75rem;text-align: right;">v${GM_info.script.version}</span>
+<style>
+.hidden {
+    display: none;
+}
+.ignored-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+</style>
+<div style="position:relative;display:flex;">
+    <div class="js--ignored hidden" style="position:absolute;left:0;top:0;right:0;padding:0.5rem;border:1px solid black;background:white;z-index:1;">
+        <div style="display:flex;justify-content: space-between;">
+            <i role="button" title="Add ignored job id or work code" style="cursor: pointer;font-size: 1.25rem;" class="v-icon notranslate mdi mdi-plus theme--light primary--text js--ignored-add-button"></i>
+            <i role="button" title="Export" style="cursor: pointer;font-size: 1.25rem;" class="v-icon notranslate mdi mdi-close theme--light primary--text js--toggle-ignored"></i>
+        </div>
+        <ul class="ignored-list js--ignored-list"></ul>
+    </div>
+    <div>
+      <strong>This week:</strong>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; column-gap: 0.5rem; margin-right: 1rem;">
+        <span>worked:</span><span class="js--week-worked">0</span>
+        <span>overtime:</span><span class="js--week-overtime">0</span>
+        <span>target:</span><span class="js--week-target" title="edit" style="cursor: pointer;">40</span>
+      </div>
+    </div>
+    <div>
+      <strong>Overall:</strong>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; column-gap: 0.5rem;">
+        <span>worked:</span><span class="js--overall-worked">0</span>
+        <span>overtime:</span><span class="js--overall-overtime">0</span>
+        <span>target:</span><span class="js--overall-target" title="edit" style="cursor: pointer;">40</span>
+      </div>
+    </div>
+    <div style="display: flex;flex-direction: column;justify-content: space-between;">
+      <div>
+        <i role="button" title="Export" style="cursor: pointer;font-size: 1.25rem;" class="v-icon notranslate mdi mdi-download theme--light primary--text js--export-button"></i>
+        <i role="button" title="Import" style="cursor: pointer;font-size: 1.25rem;" class="v-icon notranslate mdi mdi-upload theme--light primary--text js--import-button"></i>
+        <i role="button" title="Show and hide ignored job ids and work codes" style="cursor: pointer;font-size: 1.25rem;" class="v-icon notranslate mdi mdi-minus-circle-outline theme--light primary--text js--toggle-ignored"></i>
+      </div>
+      <span style="font-size: 0.75rem;text-align: right;">v${GM_info.script.version}</span>
+    </div>
 </div>
     `;
     document.querySelector('body').appendChild(element);
@@ -228,6 +267,10 @@ function initDataDisplay() {
     document.querySelector('.js--overall-target').addEventListener('click', handleOverallTargetHoursClick);
     document.querySelector('.js--export-button').addEventListener('click', handleExportClick);
     document.querySelector('.js--import-button').addEventListener('click', handleImportClick);
+    document.querySelectorAll('.js--toggle-ignored').forEach(element => element.addEventListener('click', () => {
+        document.querySelector('.js--ignored').classList.toggle('hidden');
+    }));
+    document.querySelector('.js--ignored-add-button').addEventListener('click', handleIgnoredAddClick);
     updateData(currentWeekKey);
 }
 
@@ -270,6 +313,14 @@ function handleImportClick() {
     });
 }
 
+function handleIgnoredAddClick() {
+    const newIgnored = prompt('Ignore the job id or work code').trim();
+    if (newIgnored) {
+        storage.ignored.push(newIgnored);
+        updateData(currentWeekKey);
+    }
+}
+
 function upgradeStorage(storage) {
     if (storage.version === STORAGE_VERSION) {
         return storage;
@@ -303,6 +354,8 @@ function upgradeStorage(storage) {
             version: 1,
             entries,
             target: storage.target,
+            ignored: [],
+            unrelated: [],
         });
     }
     logInfo('Incompatible storage version...');
